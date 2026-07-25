@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>業務分析レポート — 請求書作成業務</title>
+<style>
+  /* ===================== Design tokens ===================== */
+  :root {
+    --paper: #F4F5F8;
+    --surface: #FFFFFF;
+    --panel: #ECEEF3;
+    --ink: #1B2028;
+    --ink-soft: #565E6D;
+    --line: #D9DCE3;
+    --line-strong: #C0C4CE;
+
+    --accent-asis: #2F5FDB;      /* indigo: 現状(AS-IS) / 構造 */
+    --accent-asis-soft: #E7ECFB;
+    --accent-tobe: #7A4FE0;      /* violet: TO-BE / AI活用 */
+    --accent-tobe-soft: #EFE9FC;
+
+    --sig-good: #1F8F5F;
+    --sig-good-soft: #E3F5EC;
+    --sig-warn: #B07A12;
+    --sig-warn-soft: #FBF0DA;
+    --sig-flat: #7B8494;
+    --sig-flat-soft: #EBEDF1;
+
+    --font-jp: "Yu Gothic Medium", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Meiryo", sans-serif;
+    --font-mono: ui-monospace, "Cascadia Mono", "SF Mono", Consolas, "Noto Sans Mono JP", monospace;
+
+    --radius: 7px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #14161C;
+      --surface: #1B1E26;
+      --panel: #21242D;
+      --ink: #E7E9EF;
+      --ink-soft: #9AA1B0;
+      --line: #323642;
+      --line-strong: #40454F;
+
+      --accent-asis: #7C9CFF;
+      --accent-asis-soft: #232B45;
+      --accent-tobe: #B39BFA;
+      --accent-tobe-soft: #2A2440;
+
+      --sig-good: #57C793;
+      --sig-good-soft: #17301F;
+      --sig-warn: #E0B24C;
+      --sig-warn-soft: #332A12;
+      --sig-flat: #97A0B2;
+      --sig-flat-soft: #262A33;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #14161C; --surface: #1B1E26; --panel: #21242D;
+    --ink: #E7E9EF; --ink-soft: #9AA1B0; --line: #323642; --line-strong: #40454F;
+    --accent-asis: #7C9CFF; --accent-asis-soft: #232B45;
+    --accent-tobe: #B39BFA; --accent-tobe-soft: #2A2440;
+    --sig-good: #57C793; --sig-good-soft: #17301F;
+    --sig-warn: #E0B24C; --sig-warn-soft: #332A12;
+    --sig-flat: #97A0B2; --sig-flat-soft: #262A33;
+  }
+  :root[data-theme="light"] {
+    --paper: #F4F5F8; --surface: #FFFFFF; --panel: #ECEEF3;
+    --ink: #1B2028; --ink-soft: #565E6D; --line: #D9DCE3; --line-strong: #C0C4CE;
+    --accent-asis: #2F5FDB; --accent-asis-soft: #E7ECFB;
+    --accent-tobe: #7A4FE0; --accent-tobe-soft: #EFE9FC;
+    --sig-good: #1F8F5F; --sig-good-soft: #E3F5EC;
+    --sig-warn: #B07A12; --sig-warn-soft: #FBF0DA;
+    --sig-flat: #7B8494; --sig-flat-soft: #EBEDF1;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-jp);
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+    padding: 0 0 6rem;
+  }
+  a { color: var(--accent-asis); }
+  :focus-visible { outline: 2px solid var(--accent-asis); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+  .col { max-width: 840px; margin: 0 auto; padding: 0 1.5rem; }
+  .wide { max-width: 1320px; margin: 0 auto; padding: 0 1.5rem; }
+
+  /* ===================== Header ===================== */
+  .report-header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+    padding: 3rem 0 2.25rem;
+  }
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin: 0 0 0.9rem;
+  }
+  h1 {
+    font-size: clamp(1.6rem, 1.2rem + 1.6vw, 2.3rem);
+    margin: 0 0 0.6rem;
+    text-wrap: balance;
+    letter-spacing: -0.01em;
+  }
+  .header-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1.6rem;
+    margin-top: 1.4rem;
+    font-size: 0.88rem;
+    color: var(--ink-soft);
+  }
+  .header-meta dt { font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.04em; }
+  .header-meta > div { display: flex; gap: 0.5rem; align-items: baseline; }
+  .header-meta dd { margin: 0; color: var(--ink); }
+
+  section { padding: 3.2rem 0; }
+  section + section { border-top: 1px solid var(--line); }
+  .section-head { margin-bottom: 1.6rem; }
+  .section-num { font-family: var(--font-mono); font-size: 0.78rem; color: var(--accent-asis); letter-spacing: 0.05em; }
+  h2 { font-size: 1.5rem; margin: 0.2rem 0 0.4rem; letter-spacing: -0.01em; }
+  .section-lede { color: var(--ink-soft); font-size: 0.96rem; max-width: 640px; }
+
+  /* ===================== Chips / badges ===================== */
+  .chip {
+    display: inline-flex; align-items: center; gap: 0.35em;
+    font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.02em;
+    padding: 0.2em 0.62em; border-radius: 999px; border: 1px solid transparent;
+    white-space: nowrap;
+  }
+  .chip.good { background: var(--sig-good-soft); color: var(--sig-good); }
+  .chip.warn { background: var(--sig-warn-soft); color: var(--sig-warn); }
+  .chip.flat { background: var(--sig-flat-soft); color: var(--sig-flat); }
+  .chip.asis { background: var(--accent-asis-soft); color: var(--accent-asis); }
+  .chip.tobe { background: var(--accent-tobe-soft); color: var(--accent-tobe); }
+
+  /* ===================== Swimlane ===================== */
+  .lane-scroll { overflow-x: auto; padding-bottom: 0.5rem; margin: 0 -1.5rem; padding-left: 1.5rem; padding-right: 1.5rem; }
+  .lane-diagram { position: relative; }
+  .lane-grid {
+    display: grid;
+    grid-auto-rows: minmax(108px, auto);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+    position: relative;
+    min-width: max-content;
+  }
+  .lane-label {
+    position: sticky; left: 0; z-index: 3;
+    display: flex; align-items: center;
+    padding: 0.7rem 1rem;
+    font-size: 0.86rem; font-weight: 600;
+    background: var(--panel);
+    border-right: 1px solid var(--line-strong);
+    border-bottom: 1px solid var(--line);
+  }
+  .lane-cell {
+    border-bottom: 1px solid var(--line);
+    border-right: 1px dashed var(--line);
+    padding: 0.55rem;
+    display: flex; align-items: center;
+  }
+  .lane-grid > *:nth-last-child(-n+var(--cols)) { border-bottom: none; }
+  .step-box {
+    width: 100%;
+    background: var(--surface);
+    border: 1.4px solid var(--line-strong);
+    border-radius: var(--radius);
+    padding: 0.6rem 0.7rem;
+    font-size: 0.82rem;
+    position: relative;
+    z-index: 2;
+  }
+  .step-box.tobe-box { border-color: color-mix(in srgb, var(--accent-tobe) 55%, var(--line-strong)); }
+  .step-id { font-family: var(--font-mono); font-size: 0.68rem; color: var(--ink-soft); }
+  .step-name { font-weight: 700; margin: 0.15rem 0 0.4rem; line-height: 1.35; }
+  .step-io { font-family: var(--font-mono); font-size: 0.68rem; color: var(--ink-soft); display: grid; gap: 0.15rem; }
+  .step-io b { color: var(--ink); font-family: var(--font-jp); font-weight: 500; }
+  .step-waste { margin-top: 0.4rem; }
+  .lane-connectors { position: absolute; top: 0; left: 0; pointer-events: none; z-index: 1; overflow: visible; }
+  .lane-connectors path { fill: none; stroke-width: 1.6; }
+  .lane-connectors.asis path { stroke: var(--accent-asis); }
+  .lane-connectors.tobe path { stroke: var(--accent-tobe); }
+
+  /* ===================== Tables ===================== */
+  table { border-collapse: collapse; width: 100%; font-size: 0.88rem; }
+  caption { text-align: left; font-size: 0.84rem; color: var(--ink-soft); margin-bottom: 0.6rem; }
+  th, td { text-align: left; padding: 0.65rem 0.8rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  thead th { font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.04em; color: var(--ink-soft); text-transform: uppercase; border-bottom: 1px solid var(--line-strong); }
+  tbody tr:hover { background: var(--panel); }
+  .num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; text-align: right; }
+  .table-scroll { overflow-x: auto; }
+
+  /* ===================== TO-BE pattern cards ===================== */
+  .pattern-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 0.9rem; margin-bottom: 1.8rem; }
+  .pattern-card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 1.1rem 1.2rem; cursor: pointer;
+  }
+  .pattern-card summary { list-style: none; cursor: pointer; }
+  .pattern-card summary::-webkit-details-marker { display: none; }
+  .pattern-card[open] { border-color: var(--accent-tobe); }
+  .pattern-label { font-family: var(--font-mono); font-size: 0.7rem; color: var(--accent-tobe); letter-spacing: 0.04em; }
+  .pattern-title { font-weight: 700; font-size: 1.02rem; margin: 0.3rem 0 0.4rem; }
+  .pattern-tagline { font-size: 0.84rem; color: var(--ink-soft); margin: 0 0 0.7rem; }
+  .pattern-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+  .pattern-body { padding-top: 1.2rem; margin-top: 1.1rem; border-top: 1px solid var(--line); display: grid; gap: 1.4rem; }
+  .kv-list { display: grid; gap: 0.5rem; font-size: 0.88rem; }
+  .kv-list div { display: grid; grid-template-columns: 8.5em 1fr; gap: 0.6rem; }
+  .kv-list dt { color: var(--ink-soft); font-family: var(--font-mono); font-size: 0.72rem; padding-top: 0.15rem; }
+  ul.tight { margin: 0.3rem 0 0; padding-left: 1.15em; font-size: 0.88rem; }
+  ul.tight li { margin: 0.2rem 0; }
+
+  .effect-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.7rem; }
+  .effect-tile { background: var(--panel); border-radius: var(--radius); padding: 0.8rem 0.9rem; }
+  .effect-tile .num-big { font-family: var(--font-mono); font-size: 1.3rem; font-variant-numeric: tabular-nums; }
+  .effect-tile .label { font-size: 0.72rem; color: var(--ink-soft); margin-top: 0.2rem; }
+
+  /* ===================== Priority matrix ===================== */
+  .matrix-wrap { display: flex; justify-content: center; }
+  .matrix-svg text { font-family: var(--font-jp); fill: var(--ink); }
+  .matrix-svg .axis-label { font-size: 12px; fill: var(--ink-soft); }
+  .matrix-svg .quad-label { font-size: 11px; fill: var(--ink-soft); font-family: var(--font-mono); }
+  .matrix-svg .quad { }
+  .matrix-svg .point circle { stroke: var(--surface); stroke-width: 2; }
+  .matrix-svg .point text { font-size: 12px; font-weight: 700; }
+
+  footer.report-footer { text-align: center; color: var(--ink-soft); font-size: 0.8rem; padding-top: 3rem; }
+</style>
+</head>
+<body>
+
+<header class="report-header">
+  <div class="col">
+    <p class="eyebrow">業務分析レポート / AS-IS &amp; TO-BE</p>
+    <h1 id="rpt-title">請求書作成業務 — 業務分析レポート</h1>
+    <dl class="header-meta" id="rpt-meta"></dl>
+  </div>
+</header>
+
+<section id="sec-asis">
+  <div class="col section-head">
+    <p class="section-num">01 — AS-IS</p>
+    <h2>現状の業務フロー</h2>
+    <p class="section-lede">個別定義シート(WORKING3)をもとに、担当者ごとのレーンで業務ステップを時系列に配置。ムダ時間が発生しているステップには課題タグを表示する。</p>
+  </div>
+  <div class="wide">
+    <div class="lane-scroll">
+      <div id="asis-lane" class="lane-diagram"></div>
+    </div>
+  </div>
+  <div class="col" style="margin-top:2.4rem;">
+    <div class="table-scroll">
+      <table id="issue-table">
+        <caption>課題一覧(ムダ時間の分類付き)</caption>
+        <thead><tr><th>関連ステップ</th><th>分類</th><th>内容</th><th class="num">所要(分/回)</th><th class="num">頻度(回/月)</th><th class="num">月間ムダ時間</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section id="sec-tobe">
+  <div class="col section-head">
+    <p class="section-num">02 — TO-BE</p>
+    <h2>AI活用を含む改善パターン</h2>
+    <p class="section-lede">難易度・自律性の異なる4パターンを提示する。各パターンをクリックすると、変更後のフローと効果予測が展開する。</p>
+  </div>
+  <div class="col">
+    <div class="pattern-grid" id="pattern-cards"></div>
+  </div>
+</section>
+
+<section id="sec-matrix">
+  <div class="col section-head">
+    <p class="section-num">03 — 優先順位</p>
+    <h2>優先順位マトリクス(効果 × 実行しやすさ)</h2>
+    <p class="section-lede">WORKING7の2軸マトリクスに各パターンをプロットし、着手順の判断材料とする。</p>
+  </div>
+  <div class="matrix-wrap" id="matrix-root"></div>
+</section>
+
+<section id="sec-summary">
+  <div class="col section-head">
+    <p class="section-num">04 — サマリ</p>
+    <h2>AS-IS / TO-BE 比較サマリ</h2>
+  </div>
+  <div class="col table-scroll">
+    <table id="summary-table">
+      <thead><tr><th>項目</th><th>AS-IS</th><th>TO-BE(推奨パターン適用後)</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</section>
+
+<footer class="report-footer">この分析は「業務設計の教科書」の方法論(個別定義シート／情報の地図／優先順位マトリクス)に基づき作成。</footer>
+
+<script id="report-data" type="application/json">
+{
+  "meta": {
+    "scope": "月次請求書作成業務(受注〜請求書発行)",
+    "date": "2026-07-10",
+    "author": "業務分析ハーネス",
+    "target": "経理部・営業部"
+  },
+  "actors": ["営業", "経理", "顧客"],
+  "asis": {
+    "steps": [
+      { "id": "A1", "actor": "営業", "name": "納品完了報告",   "input": "納品完了の連絡",           "output": "納品情報(メール)",     "trigger": "納品完了時", "waste": null },
+      { "id": "A2", "actor": "経理", "name": "納品データ確認", "input": "納品情報(メール)",         "output": "確認済み納品リスト",   "trigger": "月末",       "waste": "探す時間" },
+      { "id": "A3", "actor": "経理", "name": "顧客・金額の突合", "input": "確認済み納品リスト・販売管理システム", "output": "請求対象リスト", "trigger": "確認完了後", "waste": "確認する時間" },
+      { "id": "A4", "actor": "経理", "name": "不明点の問い合わせ", "input": "請求対象リストの疑義",   "output": "回答メール",         "trigger": "突合時に不整合発見", "waste": "問い合わせ時間" },
+      { "id": "A5", "actor": "経理", "name": "請求書作成",       "input": "請求対象リスト",           "output": "請求書(PDF)",         "trigger": "突合完了後", "waste": null },
+      { "id": "A6", "actor": "経理", "name": "上長承認",         "input": "請求書(PDF)",              "output": "承認済み請求書",       "trigger": "作成完了後", "waste": "確認する時間" },
+      { "id": "A7", "actor": "顧客", "name": "請求書受領・照合", "input": "承認済み請求書",           "output": "受領確認",             "trigger": "送付後",     "waste": null }
+    ]
+  },
+  "issues": [
+    { "id": "I1", "step": "A2", "category": "探す時間",     "text": "納品情報がメール本文に散在し、該当メールを探すのに時間がかかる", "minutes": 15, "freq": 25 },
+    { "id": "I2", "step": "A3", "category": "確認する時間", "text": "販売管理システムと納品リストの手動突合による二重確認",       "minutes": 20, "freq": 25 },
+    { "id": "I3", "step": "A4", "category": "問い合わせ時間", "text": "金額不一致時に営業へ都度問い合わせ、回答待ちが発生",         "minutes": 30, "freq": 8  },
+    { "id": "I4", "step": "A6", "category": "確認する時間", "text": "上長が過去メールを遡って承認可否を判断している",            "minutes": 10, "freq": 25 }
+  ],
+  "tobePatterns": [
+    {
+      "id": "P1", "name": "業務簡素化", "tagline": "納品連絡の様式統一とチェックリスト化で手戻りを解消",
+      "effectLevel": 2, "ease": 9, "effortLabel": "小", "impactLabel": "小〜中",
+      "steps": [
+        { "id": "B1", "actor": "営業", "name": "納品完了報告(定型フォーム)", "input": "納品完了の連絡", "output": "定型フォーム", "trigger": "納品完了時" },
+        { "id": "B2", "actor": "経理", "name": "納品データ確認(チェックリスト)", "input": "定型フォーム", "output": "確認済みリスト", "trigger": "月末" },
+        { "id": "B3", "actor": "経理", "name": "請求書作成", "input": "確認済みリスト", "output": "請求書(PDF)", "trigger": "確認完了後" },
+        { "id": "B4", "actor": "経理", "name": "上長承認", "input": "請求書(PDF)", "output": "承認済み請求書", "trigger": "作成完了後" },
+        { "id": "B5", "actor": "顧客", "name": "請求書受領・照合", "input": "承認済み請求書", "output": "受領確認", "trigger": "送付後" }
+      ],
+      "effect": { "timeSavedH": 5, "leadTime": "変化なし", "errorRate": "-20%", "qualitative": ["フォーマット統一による属人化の低減", "追加投資ゼロで着手可能"] },
+      "prerequisites": ["定型フォーム・チェックリストの合意形成", "営業への周知"],
+      "risks": ["定着までの移行期間に運用ブレが生じやすい"]
+    },
+    {
+      "id": "P2", "name": "ルールベース自動化", "tagline": "RPAで突合・請求書生成を自動処理",
+      "effectLevel": 6, "ease": 5, "effortLabel": "中", "impactLabel": "中〜大",
+      "steps": [
+        { "id": "C1", "actor": "営業", "name": "納品完了報告(システム連携)", "input": "納品完了の連絡", "output": "納品データ(自動登録)", "trigger": "納品完了時" },
+        { "id": "C2", "actor": "経理", "name": "RPAによる自動突合", "input": "納品データ・販売管理システム", "output": "請求対象リスト", "trigger": "毎日夜間バッチ" },
+        { "id": "C3", "actor": "経理", "name": "RPAによる請求書自動生成", "input": "請求対象リスト", "output": "請求書(PDF)", "trigger": "突合完了後" },
+        { "id": "C4", "actor": "経理", "name": "例外分のみ人による確認", "input": "不一致リスト", "output": "確定リスト", "trigger": "突合エラー時のみ" },
+        { "id": "C5", "actor": "経理", "name": "上長承認", "input": "請求書(PDF)", "output": "承認済み請求書", "trigger": "作成完了後" },
+        { "id": "C6", "actor": "顧客", "name": "請求書受領・照合", "input": "承認済み請求書", "output": "受領確認", "trigger": "送付後" }
+      ],
+      "effect": { "timeSavedH": 14, "leadTime": "-2営業日", "errorRate": "-60%", "qualitative": ["突合・生成の完全自動化で経理の定型作業を圧縮", "例外対応に人的リソースを再配分できる"] },
+      "prerequisites": ["販売管理システムとのAPI/CSV連携", "RPAツール導入・シナリオ開発", "例外処理フローの設計"],
+      "risks": ["システム改修コストが発生", "例外ケースの網羅性を継続メンテする必要"]
+    },
+    {
+      "id": "P3", "name": "生成AI活用", "tagline": "メール・チャットの内容を生成AIが読み取り、突合と問い合わせ対応を支援",
+      "effectLevel": 7, "ease": 6, "effortLabel": "中", "impactLabel": "大",
+      "steps": [
+        { "id": "D1", "actor": "営業", "name": "納品完了報告(自由記述可)", "input": "納品完了の連絡", "output": "メール/チャット", "trigger": "納品完了時" },
+        { "id": "D2", "actor": "経理", "name": "生成AIによる情報抽出・突合", "input": "メール/チャット・販売管理システム", "output": "請求対象リスト(要確認フラグ付き)", "trigger": "受信都度" },
+        { "id": "D3", "actor": "経理", "name": "生成AIによる不一致の一次回答案作成", "input": "不一致リスト", "output": "問い合わせ文案", "trigger": "不一致検知時" },
+        { "id": "D4", "actor": "経理", "name": "請求書ドラフト生成・人によるレビュー", "input": "請求対象リスト", "output": "請求書(PDF)", "trigger": "突合完了後" },
+        { "id": "D5", "actor": "経理", "name": "上長承認(AI要約付き)", "input": "請求書(PDF)・変更点要約", "output": "承認済み請求書", "trigger": "作成完了後" },
+        { "id": "D6", "actor": "顧客", "name": "請求書受領・照合", "input": "承認済み請求書", "output": "受領確認", "trigger": "送付後" }
+      ],
+      "effect": { "timeSavedH": 18, "leadTime": "-2営業日", "errorRate": "-50%", "qualitative": ["非定型な報告(自由記述メール等)にも対応できる柔軟性", "問い合わせ文案の自動生成で営業とのやり取りが短縮", "承認者は要約を確認するだけで済み負荷軽減"] },
+      "prerequisites": ["社内データでのプロンプト・抽出精度検証", "機密情報の取り扱いルール整備"],
+      "risks": ["抽出誤りのチェック体制が必要", "生成物の最終責任は人が持つ運用設計が必須"]
+    },
+    {
+      "id": "P4", "name": "AIエージェント型", "tagline": "受注〜請求〜入金確認までを横断的に自律実行するエージェントを導入",
+      "effectLevel": 9, "ease": 2, "effortLabel": "大", "impactLabel": "特大",
+      "steps": [
+        { "id": "E1", "actor": "営業", "name": "納品完了報告(システム連携)", "input": "納品完了の連絡", "output": "納品データ", "trigger": "納品完了時" },
+        { "id": "E2", "actor": "経理", "name": "AIエージェントが突合〜請求書発行まで自律実行", "input": "納品データ・販売管理・請求システム", "output": "発行済み請求書", "trigger": "納品データ登録時" },
+        { "id": "E3", "actor": "経理", "name": "例外・高額案件のみ人が最終承認", "input": "発行前請求書(閾値超過分)", "output": "承認済み請求書", "trigger": "閾値超過時のみ" },
+        { "id": "E4", "actor": "顧客", "name": "請求書受領・照合", "input": "承認済み請求書", "output": "受領確認", "trigger": "送付後" },
+        { "id": "E5", "actor": "経理", "name": "AIエージェントが入金消込を自動実施", "input": "入金データ", "output": "消込済み記録", "trigger": "入金確認時" }
+      ],
+      "effect": { "timeSavedH": 28, "leadTime": "-4営業日", "errorRate": "-75%", "qualitative": ["請求〜消込までの一気通貫自動化", "経理担当は例外対応・監督業務にシフト", "月次決算の早期化に寄与"] },
+      "prerequisites": ["複数システム(販売管理・請求・入金)のAPI連携基盤", "承認閾値・エスカレーションルールの設計", "監査ログ・ガバナンス体制の整備"],
+      "risks": ["導入・運用コストが大きい", "初期は監督コストが高く、信頼醸成に時間を要する", "システム障害時の代替手順が必要"]
+    }
+  ]
+}
+</script>
+
+<script>
+(function () {
+  const data = JSON.parse(document.getElementById('report-data').textContent);
+
+  // ---------- header meta ----------
+  const metaEl = document.getElementById('rpt-meta');
+  const metaItems = [
+    ['対象範囲', data.meta.scope],
+    ['分析日', data.meta.date],
+    ['対象部門', data.meta.target],
+    ['作成', data.meta.author]
+  ];
+  metaEl.innerHTML = metaItems.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('');
+
+  // ---------- swimlane renderer ----------
+  function renderLane(containerId, actors, steps, variant) {
+    const root = document.getElementById(containerId);
+    const cols = steps.length;
+    const grid = document.createElement('div');
+    grid.className = 'lane-grid';
+    grid.style.setProperty('--cols', cols + 1);
+    grid.style.gridTemplateColumns = `9rem repeat(${cols}, minmax(178px, 1fr))`;
+    grid.style.gridTemplateRows = `auto repeat(${actors.length}, minmax(108px, auto))`;
+
+    // corner
+    const corner = document.createElement('div');
+    corner.className = 'lane-label';
+    corner.style.gridColumn = '1';
+    corner.style.gridRow = '1';
+    corner.textContent = '担当者 ＼ 工程';
+    corner.style.fontSize = '0.72rem';
+    corner.style.color = 'var(--ink-soft)';
+    grid.appendChild(corner);
+
+    // step order header
+    steps.forEach((s, i) => {
+      const h = document.createElement('div');
+      h.className = 'lane-cell';
+      h.style.gridColumn = String(i + 2);
+      h.style.gridRow = '1';
+      h.style.background = 'var(--panel)';
+      h.style.fontFamily = 'var(--font-mono)';
+      h.style.fontSize = '0.68rem';
+      h.style.color = 'var(--ink-soft)';
+      h.textContent = `STEP ${i + 1}`;
+      grid.appendChild(h);
+    });
+
+    // lane labels
+    actors.forEach((actor, r) => {
+      const lab = document.createElement('div');
+      lab.className = 'lane-label';
+      lab.style.gridColumn = '1';
+      lab.style.gridRow = String(r + 2);
+      lab.textContent = actor;
+      grid.appendChild(lab);
+    });
+
+    // empty cells (background grid)
+    actors.forEach((actor, r) => {
+      steps.forEach((s, i) => {
+        const cell = document.createElement('div');
+        cell.className = 'lane-cell';
+        cell.style.gridColumn = String(i + 2);
+        cell.style.gridRow = String(r + 2);
+        grid.appendChild(cell);
+      });
+    });
+
+    // step boxes (placed into their actor's row / step's column)
+    const boxEls = {};
+    steps.forEach((s, i) => {
+      const r = actors.indexOf(s.actor);
+      const wrap = document.createElement('div');
+      wrap.className = 'lane-cell';
+      wrap.style.gridColumn = String(i + 2);
+      wrap.style.gridRow = String(r + 2);
+      wrap.style.background = 'transparent';
+
+      const box = document.createElement('div');
+      box.className = 'step-box' + (variant === 'tobe' ? ' tobe-box' : '');
+      box.dataset.stepId = s.id;
+      const wasteChip = s.waste ? `<span class="chip warn" style="margin-top:.4rem;">${s.waste}</span>` : '';
+      box.innerHTML = `
+        <div class="step-id">${s.id}</div>
+        <div class="step-name">${s.name}</div>
+        <div class="step-io">
+          <span><b>IN</b> ${s.input}</span>
+          <span><b>OUT</b> ${s.output}</span>
+          <span><b>契機</b> ${s.trigger}</span>
+        </div>
+        ${wasteChip}
+      `;
+      wrap.appendChild(box);
+      grid.appendChild(wrap);
+      boxEls[s.id] = box;
+    });
+
+    const svgNS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(svgNS, 'svg');
+    svg.setAttribute('class', 'lane-connectors ' + (variant === 'tobe' ? 'tobe' : 'asis'));
+    const markerId = 'arrow-' + containerId;
+    svg.innerHTML = `<defs><marker id="${markerId}" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="context-stroke"></path></marker></defs>`;
+    grid.appendChild(svg);
+
+    root.appendChild(grid);
+
+    function drawConnectors() {
+      const gridRect = grid.getBoundingClientRect();
+      svg.setAttribute('width', grid.scrollWidth);
+      svg.setAttribute('height', grid.scrollHeight);
+      svg.style.width = grid.scrollWidth + 'px';
+      svg.style.height = grid.scrollHeight + 'px';
+      svg.querySelectorAll('path.conn').forEach(p => p.remove());
+      for (let i = 0; i < steps.length - 1; i++) {
+        const a = boxEls[steps[i].id].getBoundingClientRect();
+        const b = boxEls[steps[i + 1].id].getBoundingClientRect();
+        const x1 = a.right - gridRect.left;
+        const y1 = a.top - gridRect.top + a.height / 2;
+        const x2 = b.left - gridRect.left;
+        const y2 = b.top - gridRect.top + b.height / 2;
+        const midX = (x1 + x2) / 2;
+        const d = `M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`;
+        const path = document.createElementNS(svgNS, 'path');
+        path.setAttribute('class', 'conn');
+        path.setAttribute('d', d);
+        path.setAttribute('marker-end', `url(#${markerId})`);
+        svg.appendChild(path);
+      }
+    }
+    requestAnimationFrame(() => requestAnimationFrame(drawConnectors));
+    window.addEventListener('resize', () => requestAnimationFrame(drawConnectors));
+    return drawConnectors;
+  }
+
+  renderLane('asis-lane', data.actors, data.asis.steps, 'asis');
+
+  // ---------- issue table ----------
+  const issueBody = document.querySelector('#issue-table tbody');
+  let totalWasteMin = 0;
+  issueBody.innerHTML = data.issues.map(i => {
+    const total = i.minutes * i.freq;
+    totalWasteMin += total;
+    return `<tr>
+      <td class="num" style="font-family:var(--font-mono);">${i.step}</td>
+      <td><span class="chip warn">${i.category}</span></td>
+      <td>${i.text}</td>
+      <td class="num">${i.minutes}</td>
+      <td class="num">${i.freq}</td>
+      <td class="num">${(total / 60).toFixed(1)} h</td>
+    </tr>`;
+  }).join('');
+
+  // ---------- TO-BE pattern cards ----------
+  const patternRoot = document.getElementById('pattern-cards');
+  data.tobePatterns.forEach((p, idx) => {
+    const details = document.createElement('details');
+    details.className = 'pattern-card';
+    const summary = document.createElement('summary');
+    summary.innerHTML = `
+      <div class="pattern-label">PATTERN ${String.fromCharCode(65 + idx)}</div>
+      <div class="pattern-title">${p.name}</div>
+      <p class="pattern-tagline">${p.tagline}</p>
+      <div class="pattern-chips">
+        <span class="chip tobe">効果 ${p.impactLabel}</span>
+        <span class="chip flat">導入負荷 ${p.effortLabel}</span>
+      </div>
+    `;
+    details.appendChild(summary);
+
+    const body = document.createElement('div');
+    body.className = 'pattern-body';
+    body.innerHTML = `
+      <div>
+        <div class="lane-scroll" style="margin:0;">
+          <div class="lane-diagram" id="lane-${p.id}"></div>
+        </div>
+      </div>
+      <div class="effect-grid">
+        <div class="effect-tile"><div class="num-big">${p.effect.timeSavedH}<span style="font-size:.65em;">h/月</span></div><div class="label">削減工数(見込み)</div></div>
+        <div class="effect-tile"><div class="num-big">${p.effect.leadTime}</div><div class="label">リードタイム</div></div>
+        <div class="effect-tile"><div class="num-big">${p.effect.errorRate}</div><div class="label">エラー率</div></div>
+      </div>
+      <div class="kv-list">
+        <div><dt>定性効果</dt><dd><ul class="tight">${p.effect.qualitative.map(q => `<li>${q}</li>`).join('')}</ul></dd></div>
+        <div><dt>前提条件</dt><dd><ul class="tight">${p.prerequisites.map(q => `<li>${q}</li>`).join('')}</ul></dd></div>
+        <div><dt>リスク・留意点</dt><dd><ul class="tight">${p.risks.map(q => `<li>${q}</li>`).join('')}</ul></dd></div>
+      </div>
+    `;
+    details.appendChild(body);
+    patternRoot.appendChild(details);
+
+    let laneDrawn = false;
+    details.addEventListener('toggle', () => {
+      if (details.open && !laneDrawn) {
+        renderLane(`lane-${p.id}`, data.actors, p.steps, 'tobe');
+        laneDrawn = true;
+      }
+    });
+  });
+
+  // ---------- priority matrix ----------
+  (function drawMatrix() {
+    const W = 640, H = 460, PAD = 56;
+    const svgNS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(svgNS, 'svg');
+    svg.setAttribute('class', 'matrix-svg');
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    svg.setAttribute('width', '100%');
+    svg.setAttribute('style', 'max-width:640px;');
+
+    const x0 = PAD, x1 = W - PAD, y0 = PAD, y1 = H - PAD;
+    const midX = (x0 + x1) / 2, midY = (y0 + y1) / 2;
+
+    const quadStyle = getComputedStyle(document.documentElement);
+    const goodSoft = quadStyle.getPropertyValue('--sig-good-soft').trim();
+    const warnSoft = quadStyle.getPropertyValue('--sig-warn-soft').trim();
+    const flatSoft = quadStyle.getPropertyValue('--sig-flat-soft').trim();
+
+    svg.innerHTML = `
+      <rect x="${midX}" y="${y0}" width="${x1 - midX}" height="${midY - y0}" fill="${goodSoft}"></rect>
+      <rect x="${x0}" y="${y0}" width="${midX - x0}" height="${midY - y0}" fill="${flatSoft}"></rect>
+      <rect x="${midX}" y="${midY}" width="${x1 - midX}" height="${y1 - midY}" fill="${warnSoft}"></rect>
+      <rect x="${x0}" y="${midY}" width="${midX - x0}" height="${y1 - midY}" fill="${flatSoft}" opacity="0.5"></rect>
+      <line x1="${x0}" y1="${y1}" x2="${x1}" y2="${y1}" stroke="var(--line-strong)"></line>
+      <line x1="${x0}" y1="${y0}" x2="${x0}" y2="${y1}" stroke="var(--line-strong)"></line>
+      <line x1="${midX}" y1="${y0}" x2="${midX}" y2="${y1}" stroke="var(--line)" stroke-dasharray="3,3"></line>
+      <line x1="${x0}" y1="${midY}" x2="${x1}" y2="${midY}" stroke="var(--line)" stroke-dasharray="3,3"></line>
+      <text x="${(x0+midX)/2}" y="${y0+16}" class="quad-label" text-anchor="middle">低優先</text>
+      <text x="${(midX+x1)/2}" y="${y0+16}" class="quad-label" text-anchor="middle">最優先</text>
+      <text x="${(x0+midX)/2}" y="${y1-8}" class="quad-label" text-anchor="middle">省略検討</text>
+      <text x="${(midX+x1)/2}" y="${y1-8}" class="quad-label" text-anchor="middle">中長期</text>
+      <text x="${(x0+x1)/2}" y="${H-16}" class="axis-label" text-anchor="middle">効果 →</text>
+      <text x="${16}" y="${(y0+y1)/2}" class="axis-label" text-anchor="middle" transform="rotate(-90 16 ${(y0+y1)/2})">実行しやすさ →</text>
+    `;
+
+    data.tobePatterns.forEach((p, idx) => {
+      const px = x0 + (p.effectLevel / 10) * (x1 - x0);
+      const py = y1 - (p.ease / 10) * (y1 - y0);
+      const g = document.createElementNS(svgNS, 'g');
+      g.setAttribute('class', 'point');
+      g.innerHTML = `
+        <circle cx="${px}" cy="${py}" r="16" fill="var(--accent-tobe)" fill-opacity="0.85"></circle>
+        <text x="${px}" y="${py + 4}" text-anchor="middle" fill="#fff">${String.fromCharCode(65 + idx)}</text>
+      `;
+      svg.appendChild(g);
+    });
+
+    document.getElementById('matrix-root').appendChild(svg);
+  })();
+
+  // ---------- summary table ----------
+  const best = data.tobePatterns.reduce((a, b) => (b.effect.timeSavedH > a.effect.timeSavedH ? b : a));
+  const summaryBody = document.querySelector('#summary-table tbody');
+  const rows = [
+    ['工程数', `${data.asis.steps.length} ステップ`, `${best.steps.length} ステップ(${best.name})`],
+    ['月間ムダ時間', `約 ${(totalWasteMin / 60).toFixed(1)} h`, `約 ${Math.max(0, (totalWasteMin / 60) - best.effect.timeSavedH).toFixed(1)} h(推定残存)`],
+    ['月間削減見込み', '—', `${best.effect.timeSavedH} h/月`],
+    ['リードタイム', '現状ベースライン', best.effect.leadTime],
+    ['エラー率', '現状ベースライン', best.effect.errorRate]
+  ];
+  summaryBody.innerHTML = rows.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td></tr>`).join('');
+})();
+</script>
+</body>
+</html>
