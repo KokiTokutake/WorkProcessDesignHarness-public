@@ -1,17 +1,35 @@
 ---
 name: business-analysis-guide
-description: 対象業務のAS-IS(現状)分析からTO-BE(AI活用案を含む改善案)設計、HTMLレポート生成までを、harness/配下のテンプレート・方法論に沿って対話形式で最後までガイドする。ユーザーが「業務分析を始めたい」「この業務のAS-ISとTO-BEを整理したい」「業務のムダ・非効率を洗い出したい」「この業務にAIをどう使えるか整理したい」「業務フローを可視化したい」などと言ったとき、またはharness/cases/配下の既存案件の作業を再開・続行したいときに必ず使う。単発の質問(「ムダ時間の分類って何?」など)には使わず、harness/framework.mdを直接参照すればよい。
+description: 対象業務のAS-IS(現状)分析からTO-BE(AI活用案を含む改善案)設計、HTMLレポート生成までを、業務設計ハーネス(WorkProcessDesignHarness)のテンプレート・方法論に沿って対話形式で最後までガイドする。どのフォルダで作業中でも、ユーザーが「業務分析を始めたい」「この業務のAS-ISとTO-BEを整理したい」「業務のムダ・非効率を洗い出したい」「この業務にAIをどう使えるか整理したい」「業務フローを可視化したい」などと言ったとき、またはハーネスのharness/cases/配下にある既存案件の作業を再開・続行したいときに必ず使う。単発の質問(「ムダ時間の分類って何?」など)には使わず、ハーネスのharness/framework.mdを直接参照すればよい。
 ---
 
 # 業務分析ガイド
 
-`harness/` にある「業務設計の教科書」ベースの分析フレームワークを使って、ユーザーと一緒に
+`<HARNESS>/harness/` にある「業務設計の教科書」ベースの分析フレームワークを使って、ユーザーと一緒に
 1つの業務をAS-IS→TO-BE→HTMLレポートまで通しで作り上げるためのガイド。
 
+## ハーネスの場所(`<HARNESS>`)
+
+このスキルはユーザーレベル(`~/.claude/skills/`)に置かれ、どのフォルダからでも呼ばれる。
+カレントディレクトリに頼らず、本文中の `<HARNESS>` はハーネスのリポジトリルートの絶対パスに
+読み替えること。スキル起動直後に、このスキルのベースディレクトリにある次のスクリプトを実行して
+求める(ジャンクションの先をたどって実体の場所を返す):
+
+```
+node "<このスキルのベースディレクトリ>/scripts/harness_root.js"
+```
+
+エラーになった場合は、スキルがハーネスのリポジトリにリンクされていない。READMEの
+「インストール」手順でジャンクションを張り直すようユーザーに案内する。
+
+- テンプレート・方法論・レポート雛形は `<HARNESS>` から読む。
+- **案件フォルダもカレントディレクトリではなく、必ず `<HARNESS>/harness/cases/` に作る**
+  (全案件を1か所に集約し、どこから起動しても同じ案件を再開できるようにするため)。
+
 読む前提ファイル(このスキルが動く間、随時参照する):
-- `harness/framework.md` — 方法論のリファレンス(ムダ時間分類・優先順位マトリクス・AI活用4パターン・効果予測ロジック)
-- `harness/README.md` — 全体設計とJSONスキーマ
-- `harness/templates/01_業務ステップ一覧.md` 〜 `07_優先順位マトリクス.md` — 記入するテンプレート本体
+- `<HARNESS>/harness/framework.md` — 方法論のリファレンス(ムダ時間分類・優先順位マトリクス・AI活用4パターン・効果予測ロジック)
+- `<HARNESS>/README.md` — 全体設計とJSONスキーマ
+- `<HARNESS>/harness/templates/01_業務ステップ一覧.md` 〜 `07_優先順位マトリクス.md` — 記入するテンプレート本体
 
 ## なぜ「対話形式」が必要か
 
@@ -23,12 +41,12 @@ description: 対象業務のAS-IS(現状)分析からTO-BE(AI活用案を含む�
 ## 状態管理の原則
 
 この作業は複数ターン・複数セッションにまたがる可能性が高い。**進捗は会話の記憶ではなく、
-`harness/cases/<案件名>/` 配下のファイルそのものに持たせる。** そのため:
+`<HARNESS>/harness/cases/<案件名>/` 配下のファイルそのものに持たせる。** そのため:
 
 - 各フェーズで得た情報は、そのフェーズが終わる前に対応するMarkdownファイルへ書き込む(会話の最後に
   まとめて書こうとしない)。
 - 案件フォルダに `PROGRESS.md` を作り、フェーズ1〜8の完了状況をチェックボックスで管理する。
-- スキルが再度呼ばれたときは、まず `harness/cases/` に既存案件がないか確認し、あれば
+- スキルが再度呼ばれたときは、まず `<HARNESS>/harness/cases/` に既存案件がないか確認し、あれば
   `PROGRESS.md` を読んで続きから再開する(最初から聞き直さない)。
 - セッション内の作業順序はTaskCreate/TaskUpdateでも管理してよいが、それは補助であって
   真の進捗記録はファイル側に置くこと。
@@ -47,7 +65,7 @@ Phase 7  優先順位マトリクス        → 07_優先順位マトリクス.m
 Phase 8  JSON化・レポート生成      → data.json + report.html
 ```
 
-各フェーズの考え方の詳細(なぜこの質問をするか、判断基準)は都度 `harness/framework.md` の
+各フェーズの考え方の詳細(なぜこの質問をするか、判断基準)は都度 `<HARNESS>/harness/framework.md` の
 該当節を読み返すこと。以下は各フェーズで「何を聞き、どう書き込むか」の実務手順。
 
 ---
@@ -58,8 +76,8 @@ Phase 8  JSON化・レポート生成      → data.json + report.html
    なる単位。「営業」「経理」のような部署単位でも「Aさん」のような個人単位でもよい)、分析の目的。
    一度に全部聞いてよいが、答えが曖昧な項目は仮置きにして先に進めることを許容する(後のフェーズで
    埋まっていく)。
-2. `harness/cases/<業務名を元にした短い英数字またはローマ字スラッグ>/` を作成し、
-   `harness/templates/*.md` の7ファイルをコピーする。
+2. `<HARNESS>/harness/cases/<業務名を元にした短い英数字またはローマ字スラッグ>/` を作成し、
+   `<HARNESS>/harness/templates/*.md` の7ファイルをコピーする。
 3. `01_業務ステップ一覧.md` の「対象業務のスコープ」表に聞いた内容を書き込む。
 4. `PROGRESS.md` を作成し、以下のような形でフェーズ一覧を書く:
    ```markdown
@@ -85,7 +103,7 @@ Phase 8  JSON化・レポート生成      → data.json + report.html
 
 ### Phase 2: 個別定義シート
 
-- Phase 1のステップを1つずつ、`harness/framework.md`「2. 個別定義シートの書き方」の順序
+- Phase 1のステップを1つずつ、`<HARNESS>/harness/framework.md`「2. 個別定義シートの書き方」の順序
   (INPUT→DO→OUTPUT→トリガー→メモ)で聞く。全ステップを一問一答で聞くと冗長になりやすいので、
   「まとめて教えてください、足りない項目は個別に聞き返します」と提案してもよい。
 - `02_個別定義シート.md` のブロックをステップ数分に複製し埋める。
@@ -133,31 +151,31 @@ Phase 8  JSON化・レポート生成      → data.json + report.html
 
 ### Phase 8: JSON化・レポート生成
 
-1. `01`〜`07` の内容を、`harness/README.md`「JSONスキーマの要点」の形式に変換し、
-   `harness/cases/<案件名>/data.json` として書き出す。
+1. `01`〜`07` の内容を、`<HARNESS>/README.md`「JSONスキーマの要点」の形式に変換し、
+   `<HARNESS>/harness/cases/<案件名>/data.json` として書き出す。
    - `asis.steps` は Phase 2の個別定義シート(Phase 3ですり合わせ済みの内容)から。
    - `issues` は Phase 5の課題一覧から。
    - `tobePatterns` は Phase 6のパターンごとに1要素、`effectLevel`/`ease` はPhase 7のスコアを転記。
 2. 次のコマンドでレポートを生成する(JSONの構造チェックも兼ねる):
    ```
-   node .claude/skills/business-analysis-guide/scripts/build_report.js \
-     harness/cases/<案件名>/data.json \
-     harness/cases/<案件名>/report.html \
-     harness/report/template.html
+   node "<HARNESS>/skill/business-analysis-guide/scripts/build_report.js" \
+     "<HARNESS>/harness/cases/<案件名>/data.json" \
+     "<HARNESS>/harness/cases/<案件名>/report.html" \
+     "<HARNESS>/harness/report/template.html"
    ```
    エラーが出た場合(存在しない担当者を参照している、必須キー漏れなど)はメッセージに従って
    `data.json` を修正し、再実行する。
-3. 生成できたら `harness/cases/<案件名>/report.html` のパスをユーザーに伝える。ブラウザ操作の
+3. 生成できたら `<HARNESS>/harness/cases/<案件名>/report.html` のパスをユーザーに伝える。ブラウザ操作の
    ツールが使える場合はスクリーンショットを撮って主要な問題(担当者の抜け、想定外のレーン分割など)
    がないか確認する。使えない場合は、PowerShellで既定ブラウザで開くことを提案する:
    ```
-   Start-Process "harness/cases/<案件名>/report.html"
+   Start-Process "<HARNESS>\harness\cases\<案件名>\report.html"
    ```
 4. `PROGRESS.md` の全項目にチェックを入れる。
 
 ## 再開時の動き
 
-このスキルが再度呼ばれたとき、まず `harness/cases/` を確認する。既存案件が1つならその
+このスキルが再度呼ばれたとき、まず `<HARNESS>/harness/cases/` を確認する。既存案件が1つならその
 `PROGRESS.md` を読んで続きのフェーズから再開する。複数ある場合はどの案件を続けるかユーザーに聞く。
 新規案件を始めたい旨が明言されている場合はPhase 0から始めてよい。
 

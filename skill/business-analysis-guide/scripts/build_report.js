@@ -17,7 +17,7 @@ if (!dataPath || !outPath) {
   process.exit(1);
 }
 
-const templatePath = templatePathArg || path.join(__dirname, '..', '..', '..', '..', 'harness', 'report', 'template.html');
+const templatePath = templatePathArg || path.join(__dirname, '..', '..', '..', 'harness', 'report', 'template.html');
 
 if (!fs.existsSync(dataPath)) {
   console.error(`data.json not found: ${dataPath}`);
