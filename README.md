@@ -157,3 +157,7 @@ harness/
 
 同じサンプルを01〜07のMarkdown・`data.json`・`report.html` まで通しで記入した例が
 `harness/cases/invoice-sample/` にある。各フェーズで何をどの粒度で書けばよいかの参考にする。
+
+## ライセンス
+
+[MIT License](LICENSE) です。
